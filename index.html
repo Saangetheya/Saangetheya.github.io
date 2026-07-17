@@ -183,16 +183,16 @@
   .sidebar-contact .mono-italic { font-style: italic; }
   .sidebar-contact a.badge-square { border-radius: 6px; }
 
-  .theme-row {
-    display: flex;
-    justify-content: flex-end;
-  }
   .theme-toggle {
+    position: fixed;
+    top: 1.75rem;
+    right: 1.75rem;
+    z-index: 10;
     width: 34px;
     height: 34px;
     border-radius: 50%;
     border: 1px solid var(--rule);
-    background: none;
+    background: var(--bg);
     padding: 0;
     display: flex;
     align-items: center;
@@ -481,19 +481,17 @@
 <body>
 <div class="page">
 
-  <aside class="sidebar">
-    <div class="theme-row">
-      <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle light and dark theme" title="Toggle theme">
-        <svg class="icon-sun" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5">
-          <circle cx="12" cy="12" r="4" />
-          <path d="M12 2v2.4M12 19.6V22M4.93 4.93l1.7 1.7M17.37 17.37l1.7 1.7M2 12h2.4M19.6 12H22M4.93 19.07l1.7-1.7M17.37 6.63l1.7-1.7" />
-        </svg>
-        <svg class="icon-moon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z" />
-        </svg>
-      </button>
-    </div>
+  <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle light and dark theme" title="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2.4M12 19.6V22M4.93 4.93l1.7 1.7M17.37 17.37l1.7 1.7M2 12h2.4M19.6 12H22M4.93 19.07l1.7-1.7M17.37 6.63l1.7-1.7" />
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z" />
+    </svg>
+  </button>
 
+  <aside class="sidebar">
     <div class="masthead">
       <div class="avatar">
         <img src="img/Me-web.png" alt="Abhijith Shaji" />
