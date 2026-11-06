@@ -250,10 +250,15 @@ td.num, th.num { text-align: right; }
         <div class="row"><button class="btn primary" id="confirm-save">Replace the setup</button><button class="btn" id="cancel-save">Keep the current setup</button></div>
       </div>
       <p class="muted small" id="current-setup" style="margin-bottom:0"></p>
+      <div class="row" id="set-downloads" style="margin-top:12px" hidden>
+        <span class="small muted">Downloads for this setup:</span>
+        <button class="btn" id="set-download" type="button">Selected birds (CSV)</button>
+        <button class="btn" id="attr-download" type="button">Attributes and options (CSV)</button>
+        <span class="muted small" id="set-state" aria-live="polite"></span>
+      </div>
       <details class="set-list" id="set-list" hidden>
         <summary id="set-summary">Photos in the current set</summary>
         <p class="muted small">Every annotator sees these photos in this order. Species names are shown only to you.</p>
-        <div class="row"><button class="btn" id="set-download" type="button">Download photo list (CSV)</button><span class="muted small" id="set-state"></span></div>
         <div class="species-chips" id="set-species"></div>
         <div class="set-table"><table>
           <thead><tr><th class="num">#</th><th></th><th>Photo key</th><th>Species</th><th>CUB image path</th></tr></thead>
@@ -312,6 +317,9 @@ function fmtTime(iso) { try { return iso ? new Date(iso).toLocaleString() : "–
 function isOwner() { return S.session?.role === "owner"; }
 
 const MESSAGES = {
+  bad_photo_list: "The bird list didn't match the setup, so nothing was saved. Reload the page and save again.",
+  bad_config: "The setup has an invalid value (species 1–200, photos per species, a whole-number seed, at least one attribute).",
+  list_mismatch: "The server stored a different bird list than this page sent. Reload the page before annotating.",
   wrong_password: "That code or password isn't right. Check it and try again.",
   too_many_attempts: "Too many wrong attempts. Wait 15 minutes, then try again.",
   owner_password_not_set: "The owner password hasn't been set yet. Set it from the Google Sheet's Annotation menu.",
@@ -474,33 +482,62 @@ document.addEventListener("keydown", (e) => {
   else if (e.key === "ArrowLeft" && S.idx > 0) go(S.idx - 1);
 });
 
-function applyConfig(cfg) {
-  S.config = cfg;
-  S.set = cfg ? buildSet(cfg.nSpecies, cfg.perSpecies, cfg.seed, cfg.attributes) : null;
+// The photo list saved with the setup is the source of truth; nothing re-derives it from the seed.
+function photoIndex() {
+  if (!S.photoIndex) {
+    S.photoIndex = {};
+    for (const sp of S.manifest.species) for (const p of sp.photos) S.photoIndex[p.key] = { key: p.key, path: p.path, species: sp.id, bundle: sp.bundle };
+  }
+  return S.photoIndex;
+}
+function applyConfig(cfg, photoKeys) {
+  S.config = cfg; S.set = null; S.setProblem = "";
+  if (cfg && Array.isArray(photoKeys) && photoKeys.length) {
+    const idx = photoIndex(), missing = photoKeys.filter((k) => !idx[k]);
+    if (missing.length) S.setProblem = `The saved setup lists ${missing.length} photo(s) that this page's photo catalogue doesn't contain. The catalogue must have changed; the owner needs to re-save the setup.`;
+    else {
+      S.set = { photos: photoKeys.map((k) => idx[k]), attributes: cfg.attributes };
+      // Owner-only sanity check: the seed should still reproduce the stored list.
+      const again = buildSet(cfg.nSpecies, cfg.perSpecies, cfg.seed, cfg.attributes).photos.map((p) => p.key);
+      if (isOwner() && again.join() !== photoKeys.join()) S.setProblem = "Note: the seed no longer reproduces the saved photo list (the photo catalogue changed). Annotators still get the saved list; re-save the setup if you want the seed to match.";
+    }
+  } else if (cfg) {
+    // Setups saved before the photo list was stored: derive it once, and ask the owner to re-save.
+    S.set = buildSet(cfg.nSpecies, cfg.perSpecies, cfg.seed, cfg.attributes);
+    if (isOwner()) S.setProblem = "This setup was saved before its photo list was recorded. Press Save setup once (same numbers) to store it and write it to the Google Sheet.";
+  }
+  if (S.setProblem) notice(S.setProblem, S.set ? "warn" : "err");
   $("empty-annotate").hidden = !!S.set; $("bench").hidden = !S.set;
   if (S.set) { S.idx = Math.min(S.idx, photos().length - 1); S.active = Math.min(S.active, attrs().length - 1); renderPhoto(); }
 }
 
 // ---------- owner: setup ----------
+// Values are taken exactly as typed (no silent clamping), so what is saved is what the owner sees.
 function readForm() {
-  const n = Math.max(1, Math.min(200, parseInt($("f-species").value) || 1));
-  const per = Math.max(1, Math.min(S.manifest.perSpecies, parseInt($("f-per").value) || 1));
-  const seed = parseInt($("f-seed").value) || 0;
-  return { nSpecies: n, perSpecies: per, seed, attributes: [...document.querySelectorAll("#attr-grid input:checked")].map((c) => c.value) };
+  const int = (id) => { const v = $(id).value.trim(); return /^-?\d+$/.test(v) ? Number(v) : NaN; };
+  return { nSpecies: int("f-species"), perSpecies: int("f-per"), seed: int("f-seed"),
+    attributes: [...document.querySelectorAll("#attr-grid input:checked")].map((c) => c.value) };
+}
+function formProblem(f) {
+  const maxPer = S.manifest.perSpecies;
+  if (!(Number.isInteger(f.nSpecies) && f.nSpecies >= 1 && f.nSpecies <= S.manifest.species.length)) return `Species must be a whole number from 1 to ${S.manifest.species.length}.`;
+  if (!(Number.isInteger(f.perSpecies) && f.perSpecies >= 1 && f.perSpecies <= maxPer)) return `Photos per species must be a whole number from 1 to ${maxPer}.`;
+  if (!(Number.isInteger(f.seed) && Math.abs(f.seed) <= 2147483647)) return "The seed must be a whole number.";
+  if (!f.attributes.length) return "Choose at least one attribute.";
+  return "";
 }
 function renderSetupSummary() {
-  const f = readForm(), n = f.nSpecies * f.perSpecies, box = $("setup-summary"); box.textContent = "";
+  const f = readForm(), bad = formProblem(f), n = bad ? 0 : f.nSpecies * f.perSpecies, box = $("setup-summary"); box.textContent = "";
   for (const [label, v] of [["photos", n], ["attributes", f.attributes.length], ["questions per annotator", n * f.attributes.length]]) {
     const d = document.createElement("div"), b = document.createElement("b"), s = document.createElement("span");
     b.textContent = v.toLocaleString(); s.className = "muted small"; s.textContent = label; d.append(b, s); box.append(d);
   }
-  const bad = !f.attributes.length ? "Choose at least one attribute." : "";
   $("save-setup").disabled = !!bad; $("setup-state").textContent = bad;
 }
 function speciesName(id) { return id.split(".").slice(1).join(".").replace(/_/g, " "); }
 // The current set, as every annotator receives it. Thumbnails load only while the list is open.
 function renderSetList() {
-  const box = $("set-list"); box.hidden = !S.set; if (!S.set) return;
+  const box = $("set-list"); box.hidden = !S.set; $("set-downloads").hidden = !S.set; if (!S.set) return;
   const list = photos(), counts = {};
   for (const p of list) counts[p.species] = (counts[p.species] || 0) + 1;
   $("set-summary").textContent = `Photos in the current set (${list.length} photos from ${Object.keys(counts).length} species)`;
@@ -521,17 +558,34 @@ async function loadThumbs() {
     try { img.src = (await bundle(img.dataset.bundle))[img.dataset.key]; } catch { /* leave it blank; the list still shows the path */ }
   }
 }
-function downloadSetCsv() {
-  const lines = [["order", "photo_key", "species", "image_path"].join(",")];
-  photos().forEach((p, i) => lines.push([i + 1, p.key, p.species, p.path].map(csvCell).join(",")));
-  const c = S.config, url = URL.createObjectURL(new Blob([lines.join("\n") + "\n"], { type: "text/csv" }));
-  const a = document.createElement("a"); a.href = url;
-  a.download = `annotation_set_${c.nSpecies}sp_${c.perSpecies}per_seed${c.seed}.csv`; a.click();
+function saveCsv(name, rows) {
+  const url = URL.createObjectURL(new Blob([rows.map((r) => r.map(csvCell).join(",")).join("\n") + "\n"], { type: "text/csv" }));
+  const a = document.createElement("a"); a.href = url; a.download = name; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
-  $("set-state").textContent = `Downloaded ${photos().length} photos.`;
+}
+function setTag() { const c = S.config; return `${c.nSpecies}sp_${c.perSpecies}per_seed${c.seed}`; }
+// Every photo in the set, in the order annotators see them.
+function downloadSetCsv() {
+  const rows = [["order", "photo_key", "species_id", "species_name", "image_path"]];
+  photos().forEach((p, i) => rows.push([i + 1, p.key, p.species, speciesName(p.species), p.path]));
+  saveCsv(`selected_birds_${setTag()}.csv`, rows);
+  $("set-state").textContent = `Downloaded ${photos().length} birds.`;
+}
+// Each chosen attribute with its question and options, in the order annotators see them.
+function downloadAttrCsv() {
+  const rows = [["attribute_order", "attribute", "question", "option_number", "option", "kind"]];
+  attrs().forEach((attr, i) => {
+    const meta = S.manifest.attributes[attr];
+    meta.options.forEach((o, j) => rows.push([i + 1, attr, meta.question, j + 1, o, "option"]));
+    rows.push([i + 1, attr, meta.question, "", "Unsure", "unsure"]);
+    rows.push([i + 1, attr, meta.question, "", "None of these match", "none_match"]);
+  });
+  saveCsv(`attributes_${setTag()}.csv`, rows);
+  $("set-state").textContent = `Downloaded ${attrs().length} attributes.`;
 }
 $("set-list").addEventListener("toggle", () => { if ($("set-list").open) loadThumbs(); });
 $("set-download").onclick = downloadSetCsv;
+$("attr-download").onclick = downloadAttrCsv;
 function fillSetupForm() {
   const grid = $("attr-grid"); grid.textContent = "";
   const chosen = new Set(S.config?.attributes || ["bill_shape", "tail_shape", "wing_color", "eye_color"]);
@@ -549,7 +603,19 @@ function fillSetupForm() {
 async function saveSetup(confirmed) {
   if (!confirmed && S.config && S.people?.some((p) => Object.keys(p.answers).length)) { $("setup-confirm").hidden = false; return; }
   $("setup-confirm").hidden = true; $("setup-state").textContent = "Saving…";
-  try { const r = await api("setConfig", { config: readForm() }); applyConfig(r.config); fillSetupForm(); $("setup-state").textContent = "Saved. Every annotator now gets this set."; }
+  // Send the resolved lists too, so the Google Sheet keeps a readable copy of this set.
+  const f = readForm();
+  if (formProblem(f)) { $("setup-state").textContent = formProblem(f); return; }
+  const set = buildSet(f.nSpecies, f.perSpecies, f.seed, f.attributes);
+  const birds = set.photos.map((p) => ({ key: p.key, species: p.species, speciesName: speciesName(p.species), path: p.path }));
+  const attributeOptions = f.attributes.map((a) => ({ attribute: a, question: S.manifest.attributes[a].question, options: S.manifest.attributes[a].options }));
+  const photoKeys = set.photos.map((p) => p.key);
+  try {
+    const r = await api("setConfig", { config: f, photoKeys, birds, attributeOptions });
+    if ((r.photoKeys || []).join() !== photoKeys.join()) throw { error: "list_mismatch" };   // what was stored is what was sent
+    notice(""); applyConfig(r.config, r.photoKeys); fillSetupForm();
+    $("setup-state").textContent = `Saved: ${photoKeys.length} birds. Every annotator now gets exactly this list, and it is in the Google Sheet.`;
+  }
   catch (e) { $("setup-state").textContent = MESSAGES[e.error] || "The setup couldn't be saved. Try again."; }
 }
 
@@ -630,7 +696,7 @@ async function enter(session) {
   try {
     const [cfg, mine] = await Promise.all([api("getConfig"), isOwner() ? Promise.resolve({ answers: {} }) : api("myAnswers")]);
     S.answers = mine.answers || {};
-    applyConfig(cfg.config);
+    applyConfig(cfg.config, cfg.photoKeys);
   } catch (e) { if (S.session) notice(e.error === "network" ? "The annotation service can't be reached. Check your connection and reload." : "The setup couldn't be loaded. Reload the page.", "err"); return; }
   if (isOwner()) { fillSetupForm(); showView("setup"); loadPeople(); }
   else showView("annotate");
