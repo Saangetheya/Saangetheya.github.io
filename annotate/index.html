@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Bird Attribute Annotation · Abhijith Shaji</title>
+<style>
+/* Same palette and type as the main site. Layout: photo | questions | reference sheet. */
+:root {
+  --bg: #F3F4EF; --bg-alt: #ECEDE6; --surface: #FBFBF8; --ink: #24262A; --ink-soft: #55585C;
+  --accent: #1F3A5C; --accent-soft: #E1E7EF; --accent-2: #9C7A2E; --accent-2-soft: #F4ECD8;
+  --rule: #D8D6C9; --danger: #A3332B; --danger-soft: #F8E5E2; --on-accent: #FFFFFF;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --sans: -apple-system, "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --r: 8px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15171B; --bg-alt: #1C1F24; --surface: #1F2227; --ink: #E8E6DE; --ink-soft: #A7A9A6;
+    --accent: #86ABDA; --accent-soft: #23303F; --accent-2: #D4AF5A; --accent-2-soft: #352C18;
+    --rule: #34373C; --danger: #F08A80; --danger-soft: #3A1E1B; --on-accent: #15171B; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15171B; --bg-alt: #1C1F24; --surface: #1F2227; --ink: #E8E6DE; --ink-soft: #A7A9A6;
+  --accent: #86ABDA; --accent-soft: #23303F; --accent-2: #D4AF5A; --accent-2-soft: #352C18;
+  --rule: #34373C; --danger: #F08A80; --danger-soft: #3A1E1B; --on-accent: #15171B; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--sans); }
+.wrap { max-width: 1440px; margin: 0 auto; padding-inline: 20px; padding-block: 18px 48px; }
+h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; text-wrap: balance; }
+h1 { font-size: 1.65rem; } h2 { font-size: 1.3rem; } h3 { font-size: 1.05rem; }
+a { color: var(--accent); }
+.num, .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.muted { color: var(--ink-soft); } .small { font-size: 0.85rem; }
+button { font: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+header.top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px 20px;
+  padding-bottom: 12px; border-bottom: 1px solid var(--rule); margin-bottom: 16px; }
+.who { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.pill { padding: 2px 10px; border-radius: 999px; font-size: 0.8rem; background: var(--bg-alt); color: var(--ink-soft); }
+.pill.owner { background: var(--accent-soft); color: var(--accent); }
+.tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.tab { border: 1px solid var(--rule); background: transparent; color: var(--ink-soft); padding: 6px 14px; border-radius: 999px; }
+.tab[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.link-btn { background: none; border: 0; color: var(--accent); padding: 0; text-decoration: underline; }
+
+.notice { padding: 11px 14px; border-radius: var(--r); background: var(--bg-alt); margin-bottom: 14px; }
+.notice.warn { background: var(--accent-2-soft); color: var(--accent-2); }
+.notice.err { background: var(--danger-soft); color: var(--danger); }
+
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r); padding: 20px; max-width: 980px; }
+.login { max-width: 420px; margin: 8vh auto 0; display: flex; flex-direction: column; gap: 14px; }
+label.field { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; color: var(--ink-soft); }
+input[type="text"], input[type="password"], input[type="number"] { font: inherit; color: var(--ink); background: var(--bg);
+  border: 1px solid var(--rule); border-radius: 6px; padding: 8px 10px; }
+.btn { border: 1px solid var(--rule); background: var(--surface); color: var(--ink); padding: 7px 14px; border-radius: var(--r); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn:disabled { opacity: .45; cursor: default; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+/* annotate */
+.bench { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 1100px) { .bench { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .sheet-col { grid-column: 1 / -1; } }
+@media (max-width: 720px) { .bench { grid-template-columns: minmax(0, 1fr); } }
+.photo-col, .q-col, .sheet-col { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.progress-line { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: baseline; }
+.bar { height: 6px; background: var(--rule); border-radius: 999px; overflow: hidden; }
+.bar > span { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+.photo-frame { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r); padding: 8px; display: grid; place-items: center; min-height: 280px; }
+.photo-frame img { max-height: 62vh; max-width: 100%; width: auto; border-radius: 4px; cursor: zoom-in; }
+.nav { display: flex; gap: 8px; flex-wrap: wrap; }
+.q { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r); padding: 12px 14px; }
+.q.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.q-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.q-head h3 { text-transform: capitalize; }
+.q p { margin: 4px 0 10px; color: var(--ink-soft); font-size: 0.9rem; }
+.opts { display: flex; flex-wrap: wrap; gap: 6px; }
+.opt { border: 1px solid var(--rule); background: transparent; color: var(--ink); padding: 4px 10px; border-radius: 999px; font-size: 0.88rem;
+  display: inline-flex; gap: 6px; align-items: center; }
+.opt kbd { font-family: var(--mono); font-size: 0.72rem; color: var(--ink-soft); }
+.opt[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.opt[aria-pressed="true"] kbd { color: var(--on-accent); }
+.opt.meta { border-style: dashed; }
+.opt.meta[aria-pressed="true"] { background: var(--accent-2); border-color: var(--accent-2); }
+.state { font-size: 0.78rem; color: var(--ink-soft); } .state.done { color: var(--accent); }
+.sheet-tools { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 999px; overflow: hidden; }
+.seg button { border: 0; background: transparent; color: var(--ink-soft); padding: 4px 12px; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.sheet-box { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r); max-height: 74vh; overflow: auto; padding: 6px; }
+.sheet-box img { width: 100%; height: auto; display: block; cursor: zoom-in; background: #fff; }
+.keys { font-size: 0.8rem; color: var(--ink-soft); }
+.keys kbd { font-family: var(--mono); background: var(--bg-alt); border-radius: 4px; padding: 0 5px; }
+
+/* owner */
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin: 14px 0; }
+.attr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 4px 14px; margin: 8px 0 14px; }
+.attr-grid label { display: flex; gap: 8px; align-items: center; font-size: 0.9rem; text-transform: capitalize; }
+.summary { display: flex; gap: 24px; flex-wrap: wrap; margin: 6px 0; }
+.summary div { display: flex; flex-direction: column; }
+.summary b { font-family: var(--mono); font-size: 1.3rem; font-weight: 500; }
+.confirm { border: 1px solid var(--accent-2); background: var(--accent-2-soft); color: var(--accent-2); border-radius: var(--r); padding: 12px; margin-top: 10px; }
+.code-card { border: 1px solid var(--accent); background: var(--accent-soft); border-radius: var(--r); padding: 12px 14px; margin: 12px 0; }
+.code-card .mono { font-size: 1.35rem; letter-spacing: .06em; color: var(--accent); }
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+th { font-weight: 500; color: var(--ink-soft); font-size: 0.78rem; text-transform: uppercase; letter-spacing: .05em; }
+td.num, th.num { text-align: right; }
+.lightbox { position: fixed; inset: 0; background: rgba(10, 12, 16, .86); display: grid; place-items: center; padding: 20px; z-index: 10; cursor: zoom-out; }
+.lightbox img { max-width: 100%; max-height: 100%; border-radius: 4px; background: #fff; }
+@media (prefers-reduced-motion: reduce) { .bar > span { transition: none; } }
+</style>
+<script src="config.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Bird Attribute Annotation</h1>
+      <div class="muted small">CUB-200-2011 test photos · label what you can see in each photo</div>
+    </div>
+    <div class="who">
+      <span id="role" class="pill" hidden></span>
+      <nav class="tabs" id="tabs" role="tablist" hidden>
+        <button class="tab" role="tab" data-tab="setup" id="tab-setup">Setup</button>
+        <button class="tab" role="tab" data-tab="people" id="tab-people">Annotators</button>
+        <button class="tab" role="tab" data-tab="annotate" id="tab-annotate">Preview</button>
+      </nav>
+      <button class="link-btn small" id="signout" hidden>Sign out</button>
+    </div>
+  </header>
+
+  <div id="notice" class="notice" hidden></div>
+
+  <!-- SIGN IN -->
+  <section id="view-login" hidden>
+    <form class="panel login" id="login-annotator" autocomplete="off">
+      <h2>Sign in to annotate</h2>
+      <p class="muted small" style="margin:0">Enter the personal code you received. It looks like <span class="mono">ABCDE-FGHJK</span>.</p>
+      <label class="field">Your code <input type="text" id="code" autocomplete="one-time-code" spellcheck="false" autocapitalize="characters"></label>
+      <button class="btn primary" type="submit">Sign in</button>
+      <button class="link-btn small" type="button" id="to-owner">Owner sign-in</button>
+    </form>
+    <form class="panel login" id="login-owner" hidden>
+      <h2>Owner sign-in</h2>
+      <label class="field">Owner password <input type="password" id="owner-pw" autocomplete="current-password"></label>
+      <button class="btn primary" type="submit">Sign in</button>
+      <button class="link-btn small" type="button" id="to-annotator">Annotator sign-in</button>
+    </form>
+  </section>
+
+  <!-- ANNOTATE (annotators; owner sees it as a read-only preview) -->
+  <section id="view-annotate" hidden>
+    <div id="empty-annotate" class="panel">
+      <h2>Waiting for the annotation set</h2>
+      <p class="muted">The owner hasn't set up the photos yet. Every annotator gets the same photos in the same order, with the same questions.</p>
+    </div>
+    <div id="bench" class="bench" hidden>
+      <div class="photo-col">
+        <div class="progress-line">
+          <span><span class="num" id="photo-pos"></span> <span class="muted small" id="photo-done"></span></span>
+          <span class="muted small num" id="overall"></span>
+        </div>
+        <div class="bar"><span id="bar"></span></div>
+        <div class="photo-frame"><img id="photo" alt="Bird photo to annotate"></div>
+        <div class="nav">
+          <button class="btn" id="prev">← Previous</button>
+          <button class="btn" id="next">Next →</button>
+          <button class="btn primary" id="next-open">Next unanswered</button>
+        </div>
+        <div class="keys">Keys: <kbd>1</kbd>–<kbd>9</kbd> option · <kbd>U</kbd> unsure · <kbd>N</kbd> none match · <kbd>↑</kbd><kbd>↓</kbd> question · <kbd>←</kbd><kbd>→</kbd> photo</div>
+        <div class="muted small" id="save-state" aria-live="polite"></div>
+      </div>
+      <div class="q-col" id="questions"></div>
+      <div class="sheet-col">
+        <div class="sheet-tools">
+          <h3 id="sheet-title" style="text-transform:capitalize">Reference sheet</h3>
+          <div class="seg" role="group" aria-label="Sheet layout">
+            <button id="seg-grid" aria-pressed="true">Grid</button>
+            <button id="seg-single" aria-pressed="false">Single</button>
+          </div>
+        </div>
+        <div class="muted small" id="sheet-hint"></div>
+        <div class="sheet-box"><img id="sheet" alt="Reference sheet with labelled example birds"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SETUP (owner) -->
+  <section id="view-setup" hidden>
+    <div class="panel">
+      <h2>Annotation set</h2>
+      <p class="muted small">Every annotator receives exactly this set: the same species, photos, order and questions. Species are drawn at random from the 200 CUB species with the seed, so the same numbers always give the same set.</p>
+      <div class="form-grid">
+        <label class="field">Species <input id="f-species" type="number" min="1" max="200" value="10"></label>
+        <label class="field">Photos per species <input id="f-per" type="number" min="1" value="5"></label>
+        <label class="field">Seed <input id="f-seed" type="number" value="40"></label>
+      </div>
+      <div class="row" style="justify-content:space-between">
+        <h3>Attributes to annotate</h3>
+        <div class="row small"><button class="btn" id="attr-all">Select all</button><button class="btn" id="attr-none">Clear</button></div>
+      </div>
+      <div class="attr-grid" id="attr-grid"></div>
+      <div class="summary" id="setup-summary"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn primary" id="save-setup">Save setup for all annotators</button>
+        <span class="muted small" id="setup-state" aria-live="polite"></span>
+      </div>
+      <div id="setup-confirm" class="confirm" hidden>
+        <p style="margin:0 0 8px"><b>Annotators have already started.</b> Answers stay attached to their photos and attributes. Photos or attributes you remove stop counting toward progress; new ones start unanswered.</p>
+        <div class="row"><button class="btn primary" id="confirm-save">Replace the setup</button><button class="btn" id="cancel-save">Keep the current setup</button></div>
+      </div>
+      <p class="muted small" id="current-setup" style="margin-bottom:0"></p>
+    </div>
+  </section>
+
+  <!-- ANNOTATORS (owner) -->
+  <section id="view-people" hidden>
+    <div class="panel">
+      <div class="row" style="justify-content:space-between">
+        <h2>Annotators</h2>
+        <div class="row"><button class="btn" id="refresh">Refresh</button><button class="btn primary" id="export">Export answers (CSV)</button></div>
+      </div>
+      <form class="row" id="add-form" style="margin-top:14px" autocomplete="off">
+        <label class="field" style="flex:1;min-width:200px">New annotator's name <input type="text" id="new-name" maxlength="60"></label>
+        <button class="btn primary" type="submit" style="align-self:flex-end">Add and create code</button>
+      </form>
+      <div id="code-card" class="code-card" hidden></div>
+      <p class="muted small">Progress counts the current setup. Annotators see only their own answers. Deactivating someone signs them out immediately; their answers are kept.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Name</th><th class="num">Photos complete</th><th class="num">Answers</th><th class="num">Unsure</th><th class="num">None match</th><th>Last answer</th><th>Access</th><th></th></tr></thead>
+        <tbody id="people-body"><tr><td colspan="8" class="muted">No annotators yet. Add one above.</td></tr></tbody>
+      </table></div>
+      <p class="muted small" id="export-state" aria-live="polite"></p>
+    </div>
+  </section>
+</div>
+<div class="lightbox" id="lightbox" hidden><img id="lightbox-img" alt="Enlarged image"></div>
+
+<script>
+const UNSURE = "__unsure__", NONE = "__none__";
+const API = (window.ANNOTATION_CONFIG || {}).apiUrl || "";
+const $ = (id) => document.getElementById(id);
+const S = { manifest: null, config: null, set: null, session: null, idx: 0, active: 0, layout: "grid",
+  answers: {}, pending: new Map(), flushing: false };
+
+const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} } };
+function notice(text, kind) { const n = $("notice"); n.hidden = !text; n.textContent = text || ""; n.className = "notice" + (kind ? " " + kind : ""); }
+function fmtTime(iso) { try { return iso ? new Date(iso).toLocaleString() : "–"; } catch { return iso; } }
+function isOwner() { return S.session?.role === "owner"; }
+
+const MESSAGES = {
+  wrong_password: "That code or password isn't right. Check it and try again.",
+  too_many_attempts: "Too many wrong attempts. Wait 15 minutes, then try again.",
+  owner_password_not_set: "The owner password hasn't been set yet. Set it from the Google Sheet's Annotation menu.",
+  signed_out: "Your session has ended. Sign in again.",
+};
+
+async function api(action, body = {}) {
+  if (!API) throw { error: "not_configured" };
+  let res;
+  try {
+    res = await fetch(API, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action, token: S.session?.token, ...body }) });
+  } catch { throw { error: "network" }; }
+  const data = await res.json().catch(() => ({ error: "server_error" }));
+  if (data.error === "signed_out" && action !== "login") { signOut(MESSAGES.signed_out); }
+  if (data.error) throw data;
+  return data;
+}
+
+// ---------- seeded selection: same setup -> same photos and order for everyone ----------
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a);
+  t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function shuffled(list, rng) { const a = list.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function buildSet(nSpecies, perSpecies, seed, attributes) {
+  const rng = mulberry32(seed);
+  const species = shuffled(S.manifest.species, rng).slice(0, nSpecies);
+  const photos = [];
+  for (const sp of species) for (const p of sp.photos.slice(0, perSpecies)) photos.push({ key: p.key, path: p.path, species: sp.id, bundle: sp.bundle });
+  return { species: species.map((s) => s.id), photos: shuffled(photos, rng), attributes };
+}
+
+// ---------- photos ----------
+const bundles = {};
+function bundle(file) {
+  if (!bundles[file]) bundles[file] = fetch(file).then((r) => { if (!r.ok) throw 0; return r.json(); }).catch((e) => { delete bundles[file]; throw e; });
+  return bundles[file];
+}
+
+// ---------- annotate ----------
+const photos = () => S.set?.photos || [];
+const attrs = () => S.set?.attributes || [];
+const answered = (key) => { const a = S.answers[key] || {}; return attrs().filter((x) => a[x] != null).length; };
+const isComplete = (key) => answered(key) === attrs().length;
+
+async function renderPhoto() {
+  const list = photos(); if (!list.length) return;
+  S.idx = Math.max(0, Math.min(S.idx, list.length - 1));
+  const p = list[S.idx], img = $("photo");
+  $("photo-pos").textContent = `Photo ${S.idx + 1} of ${list.length}`;
+  img.removeAttribute("src"); img.alt = "Loading photo…";
+  try { const b = await bundle(p.bundle); if (photos()[S.idx]?.key === p.key) { img.src = b[p.key]; img.alt = "Bird photo to annotate"; } }
+  catch { img.alt = "This photo couldn't be loaded. Check your connection, then move to it again."; }
+  const nxt = list[S.idx + 1]; if (nxt) bundle(nxt.bundle).catch(() => {});
+  renderQuestions(); renderSheet(); renderProgress();
+}
+
+function optionButton(attr, value, label, key, meta) {
+  const b = document.createElement("button");
+  b.className = "opt" + (meta ? " meta" : ""); b.type = "button";
+  b.setAttribute("aria-pressed", String((S.answers[photos()[S.idx].key] || {})[attr] === value));
+  const k = document.createElement("kbd"); k.textContent = key;
+  b.append(k, document.createTextNode(label));
+  b.addEventListener("click", () => choose(attr, value));
+  if (isOwner()) b.disabled = true;
+  return b;
+}
+
+function renderQuestions() {
+  const box = $("questions"); box.textContent = "";
+  const a = S.answers[photos()[S.idx].key] || {};
+  attrs().forEach((attr, i) => {
+    const meta = S.manifest.attributes[attr];
+    const q = document.createElement("div"); q.className = "q" + (i === S.active ? " active" : "");
+    q.addEventListener("click", (e) => { if (!e.target.closest(".opt") && S.active !== i) { S.active = i; renderQuestions(); renderSheet(); } });
+    const head = document.createElement("div"); head.className = "q-head";
+    const h = document.createElement("h3"); h.textContent = meta.label;
+    const st = document.createElement("span"); st.className = "state" + (a[attr] != null ? " done" : ""); st.textContent = a[attr] != null ? "answered" : "not answered";
+    head.append(h, st);
+    const p = document.createElement("p"); p.textContent = meta.question;
+    const opts = document.createElement("div"); opts.className = "opts";
+    meta.options.forEach((o, j) => opts.append(optionButton(attr, o, o, j < 9 ? String(j + 1) : "", false)));
+    opts.append(optionButton(attr, UNSURE, "Unsure", "U", true), optionButton(attr, NONE, "None of these match", "N", true));
+    q.append(head, p, opts); box.append(q);
+  });
+}
+
+function renderSheet() {
+  const attr = attrs()[S.active]; if (!attr) return;
+  $("sheet-title").textContent = S.manifest.attributes[attr].label + " · reference";
+  $("sheet").src = S.manifest.sheets[attr][S.layout];
+  $("seg-grid").setAttribute("aria-pressed", String(S.layout === "grid"));
+  $("seg-single").setAttribute("aria-pressed", String(S.layout === "single"));
+  $("sheet-hint").textContent = S.layout === "grid" ? "One row per option, with several labelled examples from the training photos."
+    : "One labelled example per option, from the training photos.";
+}
+
+function renderProgress() {
+  const list = photos(), total = list.length * attrs().length;
+  const done = list.reduce((n, p) => n + answered(p.key), 0);
+  $("overall").textContent = `${list.filter((p) => isComplete(p.key)).length}/${list.length} photos complete`;
+  $("photo-done").textContent = `· ${answered(list[S.idx].key)}/${attrs().length} answered`;
+  $("bar").style.width = total ? (100 * done / total).toFixed(1) + "%" : "0";
+  $("prev").disabled = S.idx === 0; $("next").disabled = S.idx >= list.length - 1;
+}
+
+function choose(attr, value) {
+  if (isOwner()) return;
+  const key = photos()[S.idx].key, cur = { ...(S.answers[key] || {}) };
+  cur[attr] = cur[attr] === value ? null : value;
+  if (cur[attr] == null) delete cur[attr];
+  S.answers[key] = cur;
+  S.pending.set(key + "|" + attr, { photoKey: key, attribute: attr, value: cur[attr] ?? null });
+  const i = attrs().indexOf(attr);
+  if (cur[attr] != null && i === S.active && i < attrs().length - 1) S.active = i + 1;
+  renderQuestions(); renderSheet(); renderProgress();
+  flush();
+}
+
+// Send queued answers in batches; answers picked while a batch is in flight go in the next one.
+async function flush() {
+  if (S.flushing || !S.pending.size) return;
+  S.flushing = true; $("save-state").textContent = "Saving…";
+  const batch = [...S.pending.values()]; S.pending.clear();
+  try {
+    await api("saveAnswers", { answers: batch });
+    $("save-state").textContent = S.pending.size ? "Saving…" : "All answers saved.";
+  } catch (e) {
+    if (e.error === "signed_out") { S.flushing = false; S.pending.clear(); return; }   // sign-in screen is showing
+    for (const a of batch) { const k = a.photoKey + "|" + a.attribute; if (!S.pending.has(k)) S.pending.set(k, a); }
+    $("save-state").textContent = e.error === "network" ? "Not saved yet: no connection. Retrying…" : "Not saved yet. Retrying…";
+    S.flushing = false; setTimeout(flush, 4000); return;
+  }
+  S.flushing = false; if (S.pending.size) flush();
+}
+window.addEventListener("beforeunload", (e) => { if (S.pending.size || S.flushing) { e.preventDefault(); e.returnValue = ""; } });
+
+function go(i) { S.idx = i; S.active = 0; renderPhoto(); window.scrollTo({ top: 0 }); }
+function nextOpen() {
+  const list = photos();
+  for (let k = 1; k <= list.length; k++) { const i = (S.idx + k) % list.length; if (!isComplete(list[i].key)) return go(i); }
+  $("save-state").textContent = "Every photo is complete. Thank you!";
+}
+
+document.addEventListener("keydown", (e) => {
+  if ($("view-annotate").hidden || !photos().length || e.target.closest("input, textarea")) return;
+  if (!$("lightbox").hidden) { if (e.key === "Escape") $("lightbox").hidden = true; return; }
+  const attr = attrs()[S.active], meta = attr && S.manifest.attributes[attr];
+  if (/^[1-9]$/.test(e.key) && meta) { const o = meta.options[+e.key - 1]; if (o) { choose(attr, o); e.preventDefault(); } }
+  else if (e.key.toLowerCase() === "u" && meta) choose(attr, UNSURE);
+  else if (e.key.toLowerCase() === "n" && meta) choose(attr, NONE);
+  else if (e.key === "ArrowDown") { S.active = Math.min(S.active + 1, attrs().length - 1); renderQuestions(); renderSheet(); e.preventDefault(); }
+  else if (e.key === "ArrowUp") { S.active = Math.max(S.active - 1, 0); renderQuestions(); renderSheet(); e.preventDefault(); }
+  else if (e.key === "ArrowRight" && S.idx < photos().length - 1) go(S.idx + 1);
+  else if (e.key === "ArrowLeft" && S.idx > 0) go(S.idx - 1);
+});
+
+function applyConfig(cfg) {
+  S.config = cfg;
+  S.set = cfg ? buildSet(cfg.nSpecies, cfg.perSpecies, cfg.seed, cfg.attributes) : null;
+  $("empty-annotate").hidden = !!S.set; $("bench").hidden = !S.set;
+  if (S.set) { S.idx = Math.min(S.idx, photos().length - 1); S.active = Math.min(S.active, attrs().length - 1); renderPhoto(); }
+}
+
+// ---------- owner: setup ----------
+function readForm() {
+  const n = Math.max(1, Math.min(200, parseInt($("f-species").value) || 1));
+  const per = Math.max(1, Math.min(S.manifest.perSpecies, parseInt($("f-per").value) || 1));
+  const seed = parseInt($("f-seed").value) || 0;
+  return { nSpecies: n, perSpecies: per, seed, attributes: [...document.querySelectorAll("#attr-grid input:checked")].map((c) => c.value) };
+}
+function renderSetupSummary() {
+  const f = readForm(), n = f.nSpecies * f.perSpecies, box = $("setup-summary"); box.textContent = "";
+  for (const [label, v] of [["photos", n], ["attributes", f.attributes.length], ["questions per annotator", n * f.attributes.length]]) {
+    const d = document.createElement("div"), b = document.createElement("b"), s = document.createElement("span");
+    b.textContent = v.toLocaleString(); s.className = "muted small"; s.textContent = label; d.append(b, s); box.append(d);
+  }
+  const bad = !f.attributes.length ? "Choose at least one attribute." : "";
+  $("save-setup").disabled = !!bad; $("setup-state").textContent = bad;
+}
+function fillSetupForm() {
+  const grid = $("attr-grid"); grid.textContent = "";
+  const chosen = new Set(S.config?.attributes || ["bill_shape", "tail_shape", "wing_color", "eye_color"]);
+  for (const [name, meta] of Object.entries(S.manifest.attributes)) {
+    const l = document.createElement("label"), c = document.createElement("input");
+    c.type = "checkbox"; c.value = name; c.id = "attr-" + name; c.checked = chosen.has(name);
+    c.addEventListener("change", renderSetupSummary); l.append(c, document.createTextNode(meta.label)); grid.append(l);
+  }
+  $("f-per").max = S.manifest.perSpecies;
+  if (S.config) { $("f-species").value = S.config.nSpecies; $("f-per").value = S.config.perSpecies; $("f-seed").value = S.config.seed; }
+  $("current-setup").textContent = S.config ? `Current setup: ${S.config.nSpecies} species × ${S.config.perSpecies} photos, seed ${S.config.seed}, ${S.config.attributes.length} attributes · saved ${fmtTime(S.config.savedAt)}` : "No setup saved yet.";
+  renderSetupSummary();
+}
+async function saveSetup(confirmed) {
+  if (!confirmed && S.config && S.people?.some((p) => Object.keys(p.answers).length)) { $("setup-confirm").hidden = false; return; }
+  $("setup-confirm").hidden = true; $("setup-state").textContent = "Saving…";
+  try { const r = await api("setConfig", { config: readForm() }); applyConfig(r.config); fillSetupForm(); $("setup-state").textContent = "Saved. Every annotator now gets this set."; }
+  catch (e) { $("setup-state").textContent = MESSAGES[e.error] || "The setup couldn't be saved. Try again."; }
+}
+
+// ---------- owner: annotators + export ----------
+async function loadPeople() {
+  const body = $("people-body");
+  try { S.people = (await api("listAnnotators")).annotators; } catch { body.innerHTML = '<tr><td colspan="8" class="muted">Annotators couldn\'t be loaded. Use Refresh.</td></tr>'; return; }
+  body.textContent = "";
+  if (!S.people.length) { body.innerHTML = '<tr><td colspan="8" class="muted">No annotators yet. Add one above.</td></tr>'; return; }
+  const inSet = photos(), A = attrs();
+  for (const p of S.people) {
+    let complete = 0, answers = 0, unsure = 0, none = 0;
+    for (const ph of inSet) {
+      const a = p.answers[ph.key] || {}, got = A.filter((x) => a[x] != null);
+      answers += got.length; if (A.length && got.length === A.length) complete++;
+      unsure += got.filter((x) => a[x] === UNSURE).length; none += got.filter((x) => a[x] === NONE).length;
+    }
+    const tr = document.createElement("tr");
+    const cells = [[p.name], [`${complete} / ${inSet.length}`, "num"], [`${answers} / ${inSet.length * A.length}`, "num"], [String(unsure), "num"], [String(none), "num"], [fmtTime(p.last)], [p.active ? "Active" : "Deactivated"]];
+    for (const [t, cls] of cells) { const td = document.createElement("td"); td.textContent = t; if (cls) td.className = cls; tr.append(td); }
+    const td = document.createElement("td"); td.className = "row";
+    const toggle = document.createElement("button"); toggle.className = "btn small"; toggle.textContent = p.active ? "Deactivate" : "Reactivate";
+    toggle.onclick = async () => { toggle.disabled = true; try { await api("setActive", { id: p.id, active: !p.active }); } catch {} loadPeople(); };
+    const reset = document.createElement("button"); reset.className = "btn small"; reset.textContent = "New code";
+    reset.onclick = async () => { reset.disabled = true; try { showCode(await api("resetCode", { id: p.id }), true); } catch { reset.disabled = false; } };
+    td.append(toggle, reset); tr.append(td); $("people-body").append(tr);
+  }
+}
+function showCode(r, isReset) {
+  const card = $("code-card"); card.hidden = false; card.textContent = "";
+  const t = document.createElement("div"); t.textContent = `${isReset ? "New code" : "Code"} for ${r.name}. Send it to them privately; it is shown only once.`;
+  const code = document.createElement("div"); code.className = "mono"; code.textContent = r.code;
+  const copy = document.createElement("button"); copy.className = "btn small"; copy.textContent = "Copy sign-in message";
+  const msg = `Hi ${r.name}, please annotate at ${location.origin + location.pathname} with your personal code: ${r.code}`;
+  copy.onclick = () => navigator.clipboard.writeText(msg).then(() => (copy.textContent = "Copied"), () => (copy.textContent = "Copy failed: select the code above"));
+  card.append(t, code, copy);
+}
+$("add-form").addEventListener("submit", async (e) => {
+  e.preventDefault(); const name = $("new-name").value.trim(); if (!name) return;
+  try { showCode(await api("addAnnotator", { name })); $("new-name").value = ""; loadPeople(); }
+  catch (err) { notice(MESSAGES[err.error] || "The annotator couldn't be added. Try again.", "err"); }
+});
+function csvCell(v) { const s = String(v ?? ""); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }
+async function exportCsv() {
+  $("export-state").textContent = "Collecting answers…";
+  try {
+    const r = await api("exportAnswers");
+    const info = {}; for (const sp of S.manifest.species) for (const p of sp.photos) info[p.key] = { path: p.path, species: sp.id };
+    const lines = [["annotator_id", "annotator_name", "photo_key", "image_path", "species", "attribute", "answer", "setup_id", "saved_at"].join(",")];
+    for (const row of r.rows) {
+      const [id, name, key, attr, ans, setup, at] = row, p = info[key] || {};
+      lines.push([id, name, key, p.path, p.species, attr, ans === UNSURE ? "unsure" : ans === NONE ? "none_match" : ans, setup, at].map(csvCell).join(","));
+    }
+    const url = URL.createObjectURL(new Blob([lines.join("\n") + "\n"], { type: "text/csv" }));
+    const a = document.createElement("a"); a.href = url; a.download = "bird_annotations.csv"; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    $("export-state").textContent = `Exported ${lines.length - 1} answers.`;
+  } catch (e) { $("export-state").textContent = MESSAGES[e.error] || "The answers couldn't be exported. Try again."; }
+}
+
+// ---------- sessions and views ----------
+function showView(v) {
+  for (const name of ["login", "annotate", "setup", "people"]) $("view-" + name).hidden = name !== v;
+  for (const t of document.querySelectorAll(".tab")) t.setAttribute("aria-selected", String(t.dataset.tab === v));
+  if (v === "people") loadPeople();
+  if (v === "annotate" && S.set) renderPhoto();
+}
+function signOut(msg) {
+  S.session = null; S.answers = {}; store.set("annotation_session", null);
+  $("tabs").hidden = true; $("signout").hidden = true; $("role").hidden = true;
+  showView("login"); notice(msg || "");
+}
+async function enter(session) {
+  S.session = session; store.set("annotation_session", JSON.stringify(session));
+  $("role").hidden = false; $("signout").hidden = false;
+  $("role").textContent = isOwner() ? "Owner" : session.name; $("role").className = "pill" + (isOwner() ? " owner" : "");
+  $("tabs").hidden = !isOwner(); notice("");
+  try {
+    const [cfg, mine] = await Promise.all([api("getConfig"), isOwner() ? Promise.resolve({ answers: {} }) : api("myAnswers")]);
+    S.answers = mine.answers || {};
+    applyConfig(cfg.config);
+  } catch (e) { if (S.session) notice(e.error === "network" ? "The annotation service can't be reached. Check your connection and reload." : "The setup couldn't be loaded. Reload the page.", "err"); return; }
+  if (isOwner()) { fillSetupForm(); showView("setup"); loadPeople(); }
+  else showView("annotate");
+}
+async function login(body, btn) {
+  btn.disabled = true; notice("");
+  try { const r = await api("login", body); await enter({ token: r.token, role: r.role, name: r.name }); }
+  catch (e) { notice(MESSAGES[e.error] || (e.error === "network" ? "The annotation service can't be reached. Check your connection." : e.error === "not_configured" ? "This page isn't connected to its backend yet (config.js)." : "Sign-in failed. Try again."), "err"); }
+  finally { btn.disabled = false; }
+}
+$("login-annotator").addEventListener("submit", (e) => { e.preventDefault(); login({ role: "annotator", code: $("code").value }, e.submitter || e.target.querySelector("button[type=submit]")); });
+$("login-owner").addEventListener("submit", (e) => { e.preventDefault(); login({ role: "owner", password: $("owner-pw").value }, e.submitter || e.target.querySelector("button[type=submit]")); $("owner-pw").value = ""; });
+$("to-owner").onclick = () => { $("login-annotator").hidden = true; $("login-owner").hidden = false; $("owner-pw").focus(); };
+$("to-annotator").onclick = () => { $("login-owner").hidden = true; $("login-annotator").hidden = false; $("code").focus(); };
+$("signout").onclick = () => signOut("You're signed out.");
+document.querySelectorAll(".tab").forEach((b) => (b.onclick = () => showView(b.dataset.tab)));
+$("prev").onclick = () => go(S.idx - 1); $("next").onclick = () => go(S.idx + 1); $("next-open").onclick = nextOpen;
+$("seg-grid").onclick = () => { S.layout = "grid"; store.set("layout", "grid"); renderSheet(); };
+$("seg-single").onclick = () => { S.layout = "single"; store.set("layout", "single"); renderSheet(); };
+for (const id of ["photo", "sheet"]) $(id).addEventListener("click", () => { if (!$(id).src) return; $("lightbox-img").src = $(id).src; $("lightbox").hidden = false; });
+$("lightbox").onclick = () => ($("lightbox").hidden = true);
+for (const id of ["f-species", "f-per", "f-seed"]) $(id).addEventListener("input", renderSetupSummary);
+$("attr-all").onclick = () => { document.querySelectorAll("#attr-grid input").forEach((c) => (c.checked = true)); renderSetupSummary(); };
+$("attr-none").onclick = () => { document.querySelectorAll("#attr-grid input").forEach((c) => (c.checked = false)); renderSetupSummary(); };
+$("save-setup").onclick = () => saveSetup(false); $("confirm-save").onclick = () => saveSetup(true);
+$("cancel-save").onclick = () => ($("setup-confirm").hidden = true);
+$("refresh").onclick = loadPeople; $("export").onclick = exportCsv;
+if (store.get("layout") === "single") S.layout = "single";
+
+(async function start() {
+  try { S.manifest = await (await fetch("manifest.json")).json(); }
+  catch { notice("The photo catalogue couldn't be loaded. Reload the page.", "err"); return; }
+  if (!API) notice("This page isn't connected to its backend yet: add the Apps Script URL to config.js.", "warn");
+  let saved = null; try { saved = JSON.parse(store.get("annotation_session") || "null"); } catch {}
+  if (saved?.token) enter(saved); else showView("login");
+})();
+</script>
+</body>
+</html>
