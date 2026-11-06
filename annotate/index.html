@@ -97,6 +97,19 @@ input[type="text"], input[type="password"], input[type="number"] { font: inherit
 .seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
 .sheet-box { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r); max-height: 74vh; overflow: auto; padding: 6px; }
 .sheet-box img { width: 100%; height: auto; display: block; cursor: zoom-in; background: #fff; }
+/* Keep the photo and the reference sheet in view while the questions scroll. */
+@media (min-width: 1101px) {
+  /* Short enough to stay fully visible even at the bottom of the page (its 48px bottom padding). */
+  .photo-col, .sheet-col { position: sticky; top: 12px; max-height: calc(100vh - 72px); }
+  .photo-col { overflow-y: auto; }
+  .photo-frame { min-height: 0; }
+  .photo-frame img { max-height: calc(100vh - 320px); }
+  .sheet-box { max-height: calc(100vh - 175px); }
+}
+@media (min-width: 721px) and (max-width: 1100px) {
+  .photo-col { position: sticky; top: 12px; }
+  .photo-frame img { max-height: calc(100vh - 290px); }
+}
 .keys { font-size: 0.8rem; color: var(--ink-soft); }
 .keys kbd { font-family: var(--mono); background: var(--bg-alt); border-radius: 4px; padding: 0 5px; }
 
