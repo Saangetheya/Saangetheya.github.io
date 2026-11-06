@@ -124,12 +124,29 @@ input[type="text"], input[type="password"], input[type="number"] { font: inherit
 .code-card { border: 1px solid var(--accent); background: var(--accent-soft); border-radius: var(--r); padding: 12px 14px; margin: 12px 0; }
 .code-card .mono { font-size: 1.35rem; letter-spacing: .06em; color: var(--accent); }
 .table-wrap { overflow-x: auto; }
+details.set-list { margin-top: 18px; border-top: 1px solid var(--rule); padding-top: 14px; }
+details.set-list summary { cursor: pointer; font-family: var(--serif); font-weight: 600; font-size: 1.05rem; }
+.species-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+.species-chips span { background: var(--bg-alt); border-radius: 999px; padding: 2px 10px; font-size: 0.82rem; }
+.set-table { max-height: 460px; overflow: auto; border: 1px solid var(--rule); border-radius: var(--r); }
+.set-table td img { width: 44px; height: 44px; object-fit: cover; border-radius: 4px; display: block; background: var(--bg-alt); }
+.set-table thead th { position: sticky; top: 0; background: var(--surface); }
 table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
 th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
 th { font-weight: 500; color: var(--ink-soft); font-size: 0.78rem; text-transform: uppercase; letter-spacing: .05em; }
 td.num, th.num { text-align: right; }
-.lightbox { position: fixed; inset: 0; background: rgba(10, 12, 16, .86); display: grid; place-items: center; padding: 20px; z-index: 10; cursor: zoom-out; }
-.lightbox img { max-width: 100%; max-height: 100%; border-radius: 4px; background: #fff; }
+/* Enlarged view: toolbar on top, scrollable stage below; the image is sized in JS (fit, then zoom steps). */
+.lightbox { position: fixed; inset: 0; z-index: 20; background: #0e1014; display: flex; flex-direction: column; }
+.lb-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 10px; color: #e8e6de; }
+.lb-bar .lb-title { font-family: var(--serif); font-size: 1.05rem; text-transform: capitalize; }
+.lb-tools { display: flex; align-items: center; gap: 6px; }
+.lb-tools button { border: 1px solid rgba(255,255,255,.28); background: rgba(255,255,255,.08); color: #fff; border-radius: 6px;
+  min-width: 36px; height: 34px; padding: 0 10px; }
+.lb-tools button:hover { background: rgba(255,255,255,.18); }
+.lb-zoom { font-family: var(--mono); font-size: 0.85rem; min-width: 52px; text-align: center; color: #e8e6de; }
+.lb-stage { flex: 1; min-height: 0; overflow: auto; display: flex; padding: 0 16px 16px; overscroll-behavior: contain; }
+.lb-stage img { display: block; margin: auto; flex: none; max-width: none; height: auto; border-radius: 4px; background: #fff; }
 @media (prefers-reduced-motion: reduce) { .bar > span { transition: none; } }
 </style>
 <script src="config.js"></script>
@@ -233,6 +250,16 @@ td.num, th.num { text-align: right; }
         <div class="row"><button class="btn primary" id="confirm-save">Replace the setup</button><button class="btn" id="cancel-save">Keep the current setup</button></div>
       </div>
       <p class="muted small" id="current-setup" style="margin-bottom:0"></p>
+      <details class="set-list" id="set-list" hidden>
+        <summary id="set-summary">Photos in the current set</summary>
+        <p class="muted small">Every annotator sees these photos in this order. Species names are shown only to you.</p>
+        <div class="row"><button class="btn" id="set-download" type="button">Download photo list (CSV)</button><span class="muted small" id="set-state"></span></div>
+        <div class="species-chips" id="set-species"></div>
+        <div class="set-table"><table>
+          <thead><tr><th class="num">#</th><th></th><th>Photo key</th><th>Species</th><th>CUB image path</th></tr></thead>
+          <tbody id="set-body"></tbody>
+        </table></div>
+      </details>
     </div>
   </section>
 
@@ -257,7 +284,19 @@ td.num, th.num { text-align: right; }
     </div>
   </section>
 </div>
-<div class="lightbox" id="lightbox" hidden><img id="lightbox-img" alt="Enlarged image"></div>
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Enlarged image" hidden>
+  <div class="lb-bar">
+    <span class="lb-title" id="lb-title"></span>
+    <div class="lb-tools">
+      <button type="button" id="lb-out" aria-label="Zoom out">−</button>
+      <span class="lb-zoom" id="lb-zoom">100%</span>
+      <button type="button" id="lb-in" aria-label="Zoom in">+</button>
+      <button type="button" id="lb-fit">Fit</button>
+      <button type="button" id="lb-close" aria-label="Close">Close ✕</button>
+    </div>
+  </div>
+  <div class="lb-stage" id="lb-stage"><img id="lightbox-img" alt="Enlarged image"></div>
+</div>
 
 <script>
 const UNSURE = "__unsure__", NONE = "__none__";
@@ -418,7 +457,13 @@ function nextOpen() {
 
 document.addEventListener("keydown", (e) => {
   if ($("view-annotate").hidden || !photos().length || e.target.closest("input, textarea")) return;
-  if (!$("lightbox").hidden) { if (e.key === "Escape") $("lightbox").hidden = true; return; }
+  if (!$("lightbox").hidden) {
+    if (e.key === "Escape") closeZoom();
+    else if (e.key === "+" || e.key === "=") zoomBy(1.25);
+    else if (e.key === "-") zoomBy(0.8);
+    else if (e.key === "0") fitZoom();
+    return;
+  }
   const attr = attrs()[S.active], meta = attr && S.manifest.attributes[attr];
   if (/^[1-9]$/.test(e.key) && meta) { const o = meta.options[+e.key - 1]; if (o) { choose(attr, o); e.preventDefault(); } }
   else if (e.key.toLowerCase() === "u" && meta) choose(attr, UNSURE);
@@ -452,6 +497,41 @@ function renderSetupSummary() {
   const bad = !f.attributes.length ? "Choose at least one attribute." : "";
   $("save-setup").disabled = !!bad; $("setup-state").textContent = bad;
 }
+function speciesName(id) { return id.split(".").slice(1).join(".").replace(/_/g, " "); }
+// The current set, as every annotator receives it. Thumbnails load only while the list is open.
+function renderSetList() {
+  const box = $("set-list"); box.hidden = !S.set; if (!S.set) return;
+  const list = photos(), counts = {};
+  for (const p of list) counts[p.species] = (counts[p.species] || 0) + 1;
+  $("set-summary").textContent = `Photos in the current set (${list.length} photos from ${Object.keys(counts).length} species)`;
+  const chips = $("set-species"); chips.textContent = "";
+  for (const sp of Object.keys(counts).sort()) { const c = document.createElement("span"); c.textContent = `${speciesName(sp)} · ${counts[sp]}`; chips.append(c); }
+  const body = $("set-body"); body.textContent = "";
+  list.forEach((p, i) => {
+    const tr = document.createElement("tr");
+    const cells = [[String(i + 1), "num"], [""], [p.key, "mono"], [speciesName(p.species)], [p.path, "muted small"]];
+    for (const [t, cls] of cells) { const td = document.createElement("td"); td.textContent = t; if (cls) td.className = cls; tr.append(td); }
+    const img = document.createElement("img"); img.alt = ""; img.dataset.key = p.key; img.dataset.bundle = p.bundle;
+    tr.children[1].append(img); body.append(tr);
+  });
+  if (box.open) loadThumbs();
+}
+async function loadThumbs() {
+  for (const img of $("set-body").querySelectorAll("img:not([src])")) {
+    try { img.src = (await bundle(img.dataset.bundle))[img.dataset.key]; } catch { /* leave it blank; the list still shows the path */ }
+  }
+}
+function downloadSetCsv() {
+  const lines = [["order", "photo_key", "species", "image_path"].join(",")];
+  photos().forEach((p, i) => lines.push([i + 1, p.key, p.species, p.path].map(csvCell).join(",")));
+  const c = S.config, url = URL.createObjectURL(new Blob([lines.join("\n") + "\n"], { type: "text/csv" }));
+  const a = document.createElement("a"); a.href = url;
+  a.download = `annotation_set_${c.nSpecies}sp_${c.perSpecies}per_seed${c.seed}.csv`; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  $("set-state").textContent = `Downloaded ${photos().length} photos.`;
+}
+$("set-list").addEventListener("toggle", () => { if ($("set-list").open) loadThumbs(); });
+$("set-download").onclick = downloadSetCsv;
 function fillSetupForm() {
   const grid = $("attr-grid"); grid.textContent = "";
   const chosen = new Set(S.config?.attributes || ["bill_shape", "tail_shape", "wing_color", "eye_color"]);
@@ -462,6 +542,7 @@ function fillSetupForm() {
   }
   $("f-per").max = S.manifest.perSpecies;
   if (S.config) { $("f-species").value = S.config.nSpecies; $("f-per").value = S.config.perSpecies; $("f-seed").value = S.config.seed; }
+  renderSetList();
   $("current-setup").textContent = S.config ? `Current setup: ${S.config.nSpecies} species × ${S.config.perSpecies} photos, seed ${S.config.seed}, ${S.config.attributes.length} attributes · saved ${fmtTime(S.config.savedAt)}` : "No setup saved yet.";
   renderSetupSummary();
 }
@@ -569,8 +650,38 @@ document.querySelectorAll(".tab").forEach((b) => (b.onclick = () => showView(b.d
 $("prev").onclick = () => go(S.idx - 1); $("next").onclick = () => go(S.idx + 1); $("next-open").onclick = nextOpen;
 $("seg-grid").onclick = () => { S.layout = "grid"; store.set("layout", "grid"); renderSheet(); };
 $("seg-single").onclick = () => { S.layout = "single"; store.set("layout", "single"); renderSheet(); };
-for (const id of ["photo", "sheet"]) $(id).addEventListener("click", () => { if (!$(id).src) return; $("lightbox-img").src = $(id).src; $("lightbox").hidden = false; });
-$("lightbox").onclick = () => ($("lightbox").hidden = true);
+// Enlarged view. Fit: the photo fills the screen; a sheet fills the screen width (it's tall, so scroll down it).
+const Z = { scale: 1, fit: 1, mode: "photo" };
+function setScale(scale) {
+  const img = $("lightbox-img"); if (!img.naturalWidth) return;
+  Z.scale = Math.max(0.2, Math.min(scale, 8));
+  img.style.width = Math.round(img.naturalWidth * Z.scale) + "px";
+  $("lb-zoom").textContent = Math.round(100 * Z.scale / Z.fit) + "%";
+}
+function fitZoom() {
+  const img = $("lightbox-img"), st = $("lb-stage"); if (!img.naturalWidth) return;
+  const w = st.clientWidth - 32, h = st.clientHeight - 16;
+  Z.fit = Z.mode === "photo" ? Math.min(w / img.naturalWidth, h / img.naturalHeight) : Math.min(w / img.naturalWidth, 2.5);
+  setScale(Z.fit); st.scrollTo(0, 0);
+}
+function zoomBy(f) {
+  const st = $("lb-stage"), cx = (st.scrollLeft + st.clientWidth / 2) / st.scrollWidth, cy = (st.scrollTop + st.clientHeight / 2) / st.scrollHeight;
+  setScale(Z.scale * f);
+  st.scrollLeft = cx * st.scrollWidth - st.clientWidth / 2; st.scrollTop = cy * st.scrollHeight - st.clientHeight / 2;   // keep the centre in place
+}
+function openZoom(src, mode, title) {
+  const img = $("lightbox-img");
+  Z.mode = mode; $("lb-title").textContent = title;
+  img.style.width = ""; $("lightbox").hidden = false; document.body.style.overflow = "hidden";
+  img.onload = fitZoom; img.src = src; if (img.complete && img.naturalWidth) fitZoom();
+  $("lb-close").focus();
+}
+function closeZoom() { $("lightbox").hidden = true; document.body.style.overflow = ""; }
+$("photo").addEventListener("click", () => { if ($("photo").src) openZoom($("photo").src, "photo", $("photo-pos").textContent); });
+$("sheet").addEventListener("click", () => { if ($("sheet").src) openZoom($("sheet").src, "sheet", $("sheet-title").textContent); });
+$("lb-in").onclick = () => zoomBy(1.25); $("lb-out").onclick = () => zoomBy(0.8); $("lb-fit").onclick = fitZoom; $("lb-close").onclick = closeZoom;
+$("lb-stage").addEventListener("click", (e) => { if (e.target === e.currentTarget) closeZoom(); });   // click outside the image closes
+window.addEventListener("resize", () => { if (!$("lightbox").hidden) fitZoom(); });
 for (const id of ["f-species", "f-per", "f-seed"]) $(id).addEventListener("input", renderSetupSummary);
 $("attr-all").onclick = () => { document.querySelectorAll("#attr-grid input").forEach((c) => (c.checked = true)); renderSetupSummary(); };
 $("attr-none").onclick = () => { document.querySelectorAll("#attr-grid input").forEach((c) => (c.checked = false)); renderSetupSummary(); };
